@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: school_mongodb
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_DATABASE: school_management
+    ports:
+      - "27017:27017"
+    networks:
+      - school_network
+    healthcheck:  # Проверка за готовност на MongoDB
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped  # Автоматично рестартиране при грешка
+
+  backend:
+    build: ./backend
+    container_name: school_backend
+    ports:
+      - "3000:3000"
+    environment:
+      DB_CONNECTION: "mongodb://root:example@mongodb:27017/school_management?authSource=admin"
+      PORT: 3000
+    depends_on:
+      mongodb:
+        condition: service_healthy  # Чака MongoDB да е "healthy"
+    networks:
+      - school_network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    restart: unless-stopped  # Автоматично рестартиране
+
+networks:
+  school_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
